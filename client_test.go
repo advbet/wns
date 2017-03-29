@@ -18,16 +18,16 @@ func TestCheckForErrs(t *testing.T) {
 		{
 			msg: "test error tag",
 			xml: `<?xml version="1.0" encoding="ISO-8859-1"?><error>Too frequent download. (From IP: 127.0.0.1, 3 seconds ago)</error>`,
-			expected: &WNSError{
-				Type: tooFrequent,
+			expected: &APIError{
+				Type: ErrTypeTooFrequent,
 				Err:  "Too frequent download. (From IP: 127.0.0.1, 3 seconds ago)",
 			},
 		},
 		{
 			msg: "test error-message tag",
 			xml: `<?xml version="1.0" encoding="ISO-8859-1"?><error-message>There are no files ready for transfer at the moment.</error-message>`,
-			expected: &WNSError{
-				Type: noNew,
+			expected: &APIError{
+				Type: ErrTypeNoNew,
 				Err:  "There are no files ready for transfer at the moment.",
 			},
 		},

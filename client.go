@@ -39,6 +39,7 @@ func (w *WNS) Clear(ctx context.Context) error {
 	return resp.Body.Close()
 }
 
+// Data wraps BetradarBetData and error to be returned via streamed channel
 type Data struct {
 	Data  BetradarBetData
 	Error error
@@ -61,17 +62,15 @@ func (w *WNS) Stream(ctx context.Context) chan Data {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				d := w.Get(ctx, true)
-				if d.Error != nil {
-					if wnserror, ok := d.Error.(*WNSError); ok {
-						// if there are no new files, we skip streaming the
-						// struct with such error
-						if wnserror.Type == noNew {
-							continue
-						}
+				d, err := w.Get(ctx, true)
+				if wnserror, ok := err.(*APIError); ok {
+					// if there are no new files, we skip streaming the
+					// struct with such error
+					if wnserror.Type == ErrTypeNoNew {
+						continue
 					}
 				}
-				ch <- d
+				ch <- Data{Data: d, Error: err}
 			}
 		}
 	}()
@@ -82,7 +81,7 @@ func (w *WNS) Stream(ctx context.Context) chan Data {
 // if delete flag is set to false, it does not delete the document from source,
 // so next Get request will return the same document until it is Get'ed with
 // delete flag set to true, or queue is cleared.
-func (w *WNS) Get(ctx context.Context, delete bool) Data {
+func (w *WNS) Get(ctx context.Context, delete bool) (BetradarBetData, error) {
 	keyword := "no"
 	if delete {
 		keyword = "yes"
@@ -90,23 +89,28 @@ func (w *WNS) Get(ctx context.Context, delete bool) Data {
 	url := fmt.Sprintf("%s?bookmakerName=%s&key=%s&xmlFeedName=FileGet&deleteAfterTransfer=%s", w.URL, w.Username, w.Key, keyword)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return Data{Error: err}
+		//return Data{Error: err}
+		return BetradarBetData{}, err
 	}
 	resp, err := w.HTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
-		return Data{Error: err}
+		//return Data{Error: err}
+		return BetradarBetData{}, err
 	}
 	defer resp.Body.Close()
 	var buf bytes.Buffer
 	tee := io.TeeReader(resp.Body, &buf)
-	if err := checkForErr(tee); err != nil {
-		return Data{Error: err}
+	err = checkForErr(tee)
+	if err != nil {
+		return BetradarBetData{}, err
+		//return Data{Error: err}
 	}
 	var data BetradarBetData
 	d := xml.NewDecoder(&buf)
 	d.CharsetReader = charsetReader
 	err = d.Decode(&data)
-	return Data{Data: data, Error: err}
+	//return Data{Data: data, Error: err}
+	return data, err
 }
 
 func checkForErr(r io.Reader) error {
@@ -123,48 +127,57 @@ func checkForErr(r io.Reader) error {
 	local := betradarErrors.XMLName.Local
 	if local == "error" || local == "error-message" {
 		if strings.HasPrefix(betradarErrors.Val, "Too frequent download") {
-			return &WNSError{
-				Type: tooFrequent,
+			return &APIError{
+				Type: ErrTypeTooFrequent,
 				Err:  betradarErrors.Val,
 			}
 		}
 		if betradarErrors.Val == "There are no files ready for transfer at the moment." {
-			return &WNSError{
-				Type: noNew,
+			return &APIError{
+				Type: ErrTypeNoNew,
 				Err:  betradarErrors.Val,
 			}
 		}
-		return &WNSError{
-			Type: unknown,
+		return &APIError{
+			Type: ErrTypeUnknown,
 			Err:  betradarErrors.Val,
 		}
 	}
 	return nil
 }
 
-type typeError int
+// ErrType is a type to indicate different WNS feed error types
+type ErrType int
 
 const (
-	noNew typeError = iota
-	tooFrequent
-	unknown
+	// ErrTypeNoNew is a type for an error when no need files are available
+	// to be fetched from source
+	ErrTypeNoNew ErrType = iota
+	// ErrTypeTooFrequent is a type for an error when requests are made too
+	// frequently(usually several times per 10seconds)
+	ErrTypeTooFrequent
+	// ErrTypeUnknown is a type for random errors
+	ErrTypeUnknown
 )
 
-// WNSError is an error wrapper to distinguish between known and unknown
+// APIError is an error wrapper to distinguish between known and unknown
 // feed errors, so additional logic could be done on errors that are
 // actually only informational messages concealed in error format
-type WNSError struct {
-	Type typeError
+type APIError struct {
+	Type ErrType
 	Err  string
 }
 
-func (e *WNSError) Error() string {
+// Error returns an error message from type and error value
+func (e *APIError) Error() string {
 	var t string
 	switch e.Type {
-	case noNew:
+	case ErrTypeNoNew:
 		t = "No new files available"
-	case tooFrequent:
+	case ErrTypeTooFrequent:
 		t = "Too frequent requests"
+	case ErrTypeUnknown:
+		t = "Unknown error"
 	}
 	return fmt.Sprintf("%s (%s)", t, e.Err)
 }
