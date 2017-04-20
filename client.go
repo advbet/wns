@@ -6,12 +6,16 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"golang.org/x/text/encoding/charmap"
 )
+
+var debug = os.Getenv("WNS_DEBUG") != ""
 
 // WNS is a World Number Service client
 type WNS struct {
@@ -89,28 +93,32 @@ func (w *WNS) Get(ctx context.Context, delete bool) (BetradarBetData, error) {
 	url := fmt.Sprintf("%s?bookmakerName=%s&key=%s&xmlFeedName=FileGet&deleteAfterTransfer=%s", w.URL, w.Username, w.Key, keyword)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		//return Data{Error: err}
 		return BetradarBetData{}, err
 	}
 	resp, err := w.HTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
-		//return Data{Error: err}
 		return BetradarBetData{}, err
 	}
 	defer resp.Body.Close()
-	var buf bytes.Buffer
-	tee := io.TeeReader(resp.Body, &buf)
-	err = checkForErr(tee)
+	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return BetradarBetData{}, err
-		//return Data{Error: err}
+	}
+
+	if debug {
+		_ = ioutil.WriteFile(fmt.Sprintf("wns-debug-%d.xml", time.Now().Unix()), bs, 0644)
+	}
+
+	if err = checkForErr(bytes.NewBuffer(bs)); err != nil {
+		return BetradarBetData{}, err
 	}
 	var data BetradarBetData
-	d := xml.NewDecoder(&buf)
+	d := xml.NewDecoder(bytes.NewBuffer(bs))
 	d.CharsetReader = charsetReader
-	err = d.Decode(&data)
-	//return Data{Data: data, Error: err}
-	return data, err
+	if err = d.Decode(&data); err != nil {
+		return BetradarBetData{}, err
+	}
+	return data, nil
 }
 
 func checkForErr(r io.Reader) error {
