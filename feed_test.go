@@ -74,7 +74,8 @@ func TestParseFeed(t *testing.T) {
 </BetradarBetData>
 			`,
 			expected: BetradarBetData{
-				Type: "Results",
+				XMLName: xml.Name{"", "BetradarBetData"},
+				Type:    "Results",
 				Timestamp: Timestamp{
 					Created: "Mon 2017-03-27 09:19:02",
 					TZ:      "UTC",
@@ -252,7 +253,8 @@ func TestParseFeed(t *testing.T) {
 </BetradarBetData>
 			`,
 			expected: BetradarBetData{
-				Type: "Fixtures",
+				XMLName: xml.Name{"", "BetradarBetData"},
+				Type:    "Fixtures",
 				Timestamp: Timestamp{
 					Created: "Thu 2017-03-23 00:00:04",
 					TZ:      "UTC",

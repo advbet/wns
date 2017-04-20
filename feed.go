@@ -1,7 +1,10 @@
 package wns
 
+import "encoding/xml"
+
 // BetradarBetData is a main structure for parsed document
 type BetradarBetData struct {
+	XMLName   xml.Name  `xml:"BetradarBetData"`
 	Type      string    `xml:"DocumentType,attr"`
 	Timestamp Timestamp `xml:"Timestamp"`
 	Sports    []Sport   `xml:"Sports>Sport"`
