@@ -52,7 +52,7 @@ type Data struct {
 
 // Stream streams all updates to a returned channel. Under the hood it uses
 // Get method on WNS with delete set to `true`
-func (w *WNS) Stream(ctx context.Context) chan Data {
+func (w *WNS) Stream(ctx context.Context) <-chan Data {
 	ch := make(chan Data)
 	interval := w.Interval
 	if interval == 0 {
