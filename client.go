@@ -45,8 +45,9 @@ func (w *WNS) Clear(ctx context.Context) error {
 
 // Data wraps BetradarBetData and error to be returned via streamed channel
 type Data struct {
-	Data  BetradarBetData
-	Error error
+	Data     BetradarBetData
+	Filename string
+	Error    error
 }
 
 // Stream streams all updates to a returned channel. Under the hood it uses
