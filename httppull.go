@@ -17,8 +17,9 @@ import (
 
 var debug = os.Getenv("WNS_DEBUG") != ""
 
-// WNS is a World Number Service client
-type WNS struct {
+// HTTPPullClient is Betradar WNS feed client for feed consumption with
+// HTTP-pull delivery method.
+type HTTPPullClient struct {
 	Username   string      // Betradar given Bookmaker Name
 	Key        string      // API Key
 	URL        string      // URL of feed source
@@ -30,13 +31,13 @@ type WNS struct {
 }
 
 // Clear clears the queue (removes all queued old lottery feed files)
-func (w *WNS) Clear(ctx context.Context) error {
-	url := fmt.Sprintf("%s?bookmakerName=%s&key=%s&xmlFeedName=FileGet&deleteFullQueue=yes", w.URL, w.Username, w.Key)
+func (c *HTTPPullClient) Clear(ctx context.Context) error {
+	url := fmt.Sprintf("%s?bookmakerName=%s&key=%s&xmlFeedName=FileGet&deleteFullQueue=yes", c.URL, c.Username, c.Key)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := w.HTTPClient.Do(req.WithContext(ctx))
+	resp, err := c.HTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return err
 	}
@@ -52,9 +53,9 @@ type Data struct {
 
 // Stream streams all updates to a returned channel. Under the hood it uses
 // Get method on WNS with delete set to `true`
-func (w *WNS) Stream(ctx context.Context) <-chan Data {
+func (c *HTTPPullClient) Stream(ctx context.Context) <-chan Data {
 	ch := make(chan Data)
-	interval := w.Interval
+	interval := c.Interval
 	if interval == 0 {
 		interval = 10 * time.Second
 	}
@@ -67,7 +68,7 @@ func (w *WNS) Stream(ctx context.Context) <-chan Data {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				d, err := w.Get(ctx, true)
+				d, err := c.Get(ctx, true)
 				if wnserror, ok := err.(*APIError); ok {
 					// if there are no new files, we skip streaming the
 					// struct with such error
@@ -86,17 +87,17 @@ func (w *WNS) Stream(ctx context.Context) <-chan Data {
 // if delete flag is set to false, it does not delete the document from source,
 // so next Get request will return the same document until it is Get'ed with
 // delete flag set to true, or queue is cleared.
-func (w *WNS) Get(ctx context.Context, delete bool) (BetradarBetData, error) {
+func (c *HTTPPullClient) Get(ctx context.Context, delete bool) (BetradarBetData, error) {
 	keyword := "no"
 	if delete {
 		keyword = "yes"
 	}
-	url := fmt.Sprintf("%s?bookmakerName=%s&key=%s&xmlFeedName=FileGet&deleteAfterTransfer=%s", w.URL, w.Username, w.Key, keyword)
+	url := fmt.Sprintf("%s?bookmakerName=%s&key=%s&xmlFeedName=FileGet&deleteAfterTransfer=%s", c.URL, c.Username, c.Key, keyword)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return BetradarBetData{}, err
 	}
-	resp, err := w.HTTPClient.Do(req.WithContext(ctx))
+	resp, err := c.HTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return BetradarBetData{}, err
 	}
@@ -153,42 +154,6 @@ func checkForErr(r io.Reader) error {
 		}
 	}
 	return nil
-}
-
-// ErrType is a type to indicate different WNS feed error types
-type ErrType int
-
-const (
-	// ErrTypeNoNew is a type for an error when no need files are available
-	// to be fetched from source
-	ErrTypeNoNew ErrType = iota
-	// ErrTypeTooFrequent is a type for an error when requests are made too
-	// frequently(usually several times per 10seconds)
-	ErrTypeTooFrequent
-	// ErrTypeUnknown is a type for random errors
-	ErrTypeUnknown
-)
-
-// APIError is an error wrapper to distinguish between known and unknown
-// feed errors, so additional logic could be done on errors that are
-// actually only informational messages concealed in error format
-type APIError struct {
-	Type ErrType
-	Err  string
-}
-
-// Error returns an error message from type and error value
-func (e *APIError) Error() string {
-	var t string
-	switch e.Type {
-	case ErrTypeNoNew:
-		t = "No new files available"
-	case ErrTypeTooFrequent:
-		t = "Too frequent requests"
-	case ErrTypeUnknown:
-		t = "Unknown error"
-	}
-	return fmt.Sprintf("%s (%s)", t, e.Err)
 }
 
 func charsetReader(charset string, input io.Reader) (io.Reader, error) {

@@ -23,7 +23,7 @@ func main() {
 	flag.BoolVar(&delete, "delete", false, "Delete feed document after transfer")
 	flag.Parse()
 
-	client := wns.WNS{
+	client := wns.HTTPPullClient{
 		Username: name,
 		Key:      key,
 		URL:      url,
