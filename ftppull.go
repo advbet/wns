@@ -104,6 +104,27 @@ func (c *FTPPullClient) streamPoll(ch chan<- Data, lastFile string) string {
 	return missing[len(missing)-1]
 }
 
+// Snapshot returns a slice of all feed documents available on the server sorted
+// in chronological order, starting with the oldest document. Second returned
+// value is newest odds document file name.
+//
+// If there are no feed documents on the server this function will return nil
+// slice and empty string for last document name.
+func (c *FTPPullClient) Snapshot() ([]*BetradarBetData, string, error) {
+	files, err := c.List()
+	if err != nil {
+		return nil, "", err
+	}
+	if len(files) == 0 {
+		return nil, "", nil
+	}
+	docs, err := c.Get(files)
+	if err != nil {
+		return nil, "", err
+	}
+	return docs, files[len(files)-1], nil
+}
+
 // List returns a list of odds documents available on the FTP server sorted in
 // file creation order.
 func (c *FTPPullClient) List() ([]string, error) {
