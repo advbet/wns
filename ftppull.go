@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jlaffaye/ftp"
+	"github.com/fln/ftp"
 )
 
 // FTPPullClient is Betradar WNS feed client for feed consumption with FTP-pull
@@ -131,7 +131,7 @@ func (c *FTPPullClient) Snapshot() ([]*BetradarBetData, string, error) {
 // List returns a list of odds documents available on the FTP server sorted in
 // file creation order.
 func (c *FTPPullClient) List() ([]string, error) {
-	conn, err := ftp.DialTimeout(c.hostname, dialTimeout)
+	conn, err := ftp.DialTimeouts(c.hostname, dialTimeout, retrTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (c *FTPPullClient) List() ([]string, error) {
 
 // Get retrieves a batch of odds documents from the FTP server.
 func (c *FTPPullClient) Get(filenames []string) ([]*BetradarBetData, error) {
-	conn, err := ftp.DialTimeout(c.hostname, dialTimeout)
+	conn, err := ftp.DialTimeouts(c.hostname, dialTimeout, retrTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,7 @@ func (c *FTPPullClient) Get(filenames []string) ([]*BetradarBetData, error) {
 
 // Remove performs a batch deletion of odds documents.
 func (c *FTPPullClient) Remove(filenames []string) error {
-	conn, err := ftp.DialTimeout(c.hostname, dialTimeout)
+	conn, err := ftp.DialTimeouts(c.hostname, dialTimeout, retrTimeout)
 	if err != nil {
 		return err
 	}
@@ -214,10 +214,6 @@ func (c *FTPPullClient) getFile(conn *ftp.ServerConn, filename string) (*Betrada
 		return nil, err
 	}
 	defer body.Close()
-
-	if err = body.SetDeadline(time.Now().Add(retrTimeout)); err != nil {
-		return nil, err
-	}
 
 	var data BetradarBetData
 	if err = xml.NewDecoder(body).Decode(&data); err != nil {
