@@ -7,7 +7,7 @@ import (
 
 	"bitbucket.org/advbet/wns"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
