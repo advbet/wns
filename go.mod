@@ -1,4 +1,4 @@
-module github.com/advbet/betradar-wns
+module github.com/advbet/wns
 
 go 1.17
 

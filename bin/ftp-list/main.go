@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/advbet/betradar-wns"
+	"github.com/advbet/wns"
 
 	"github.com/sirupsen/logrus"
 )

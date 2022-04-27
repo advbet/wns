@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/advbet/betradar-wns"
+	"github.com/advbet/wns"
 
 	"github.com/sirupsen/logrus"
 )
