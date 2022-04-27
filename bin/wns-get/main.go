@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"bitbucket.org/advbet/wns"
+	"github.com/advbet/betradar-wns"
 )
 
 func main() {
